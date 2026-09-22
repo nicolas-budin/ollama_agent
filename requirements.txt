@@ -1,1 +1,5 @@
 requests
+fastapi
+uvicorn[standard]
+sse-starlette
+httpx
