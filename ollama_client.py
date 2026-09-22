@@ -1,13 +1,17 @@
 import asyncio
 import json
 import logging
+import os
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "gemma4:26b"
+# En Docker, "localhost" désigne le conteneur lui-même, pas l'hôte qui fait
+# tourner Ollama — on rend donc l'URL surchargeable via l'environnement
+# (ex. http://host.docker.internal:11434/api/chat, voir Dockerfile).
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
+MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:26b")
 SYSTEM_PROMPT = "Réponds de façon brève et factuelle."
 
 # Un unique historique de conversation partagé par tous les visiteurs
