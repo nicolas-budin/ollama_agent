@@ -1,0 +1,1 @@
+Une démo de chat qui parle à un modèle **Ollama local** (`gemma4:26b`) via l'API HTTP d'Ollama (`http://localhost:11434`), pas d'API cloud ni de clé requise. Backend FastAPI (streaming SSE), frontend React (Vite).
