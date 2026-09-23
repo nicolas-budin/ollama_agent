@@ -58,6 +58,19 @@ ingress:
   #    hosts:
   #      - ollama-agent.local
 
+# --- OpenShift ---
+# Route OpenShift (alternative à l'Ingress ci-dessus, n'activer que l'un des deux).
+route:
+  enabled: false
+  host: ""  # vide : OpenShift génère <nom>-<projet>.<domaine-apps>
+  # Timeout HAProxy par défaut = 30 s : trop court pour une longue réponse
+  # streamée par un modèle 26b.
+  timeout: 10m
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
 resources: {}
 #  requests:
 #    cpu: 100m

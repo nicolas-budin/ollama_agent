@@ -5,7 +5,10 @@ Ollama : {{ include "ollama-agent.ollamaUrl" . }}
   kubectl logs -f deploy/{{ include "ollama-agent.ollama.fullname" . }} -n {{ .Release.Namespace }})
 {{- end }}
 
-{{- if .Values.ingress.enabled }}
+{{- if .Values.route.enabled }}
+URL (Route OpenShift) :
+  oc get route {{ include "ollama-agent.fullname" . }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.host}'
+{{- else if .Values.ingress.enabled }}
 URL :
 {{- range .Values.ingress.hosts }}
   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}

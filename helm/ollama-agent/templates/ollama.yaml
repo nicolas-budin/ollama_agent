@@ -74,6 +74,11 @@ spec:
           env:
             - name: OLLAMA_HOST
               value: "0.0.0.0:11434"
+            # OpenShift lance le conteneur avec un UID aléatoire non-root qui ne
+            # peut pas écrire dans /root : on place ~/.ollama (clés + modèles)
+            # sur le volume, rendu inscriptible via le fsGroup de la SCC.
+            - name: HOME
+              value: /data
             - name: OLLAMA_MODEL
               value: {{ .Values.model | quote }}
           ports:
@@ -100,7 +105,7 @@ spec:
             {{- toYaml .Values.ollama.resources | nindent 12 }}
           volumeMounts:
             - name: models
-              mountPath: /root/.ollama
+              mountPath: /data/.ollama
       volumes:
         - name: models
           {{- if .Values.ollama.persistence.enabled }}

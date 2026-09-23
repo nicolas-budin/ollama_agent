@@ -83,3 +83,4 @@ Deploys the Docker image (root `Dockerfile`) to Kubernetes. Key constraints bake
 - `OLLAMA_URL` comes from `ollamaUrl` (external Ollama), or points at the in-chart Ollama Service when `ollama.enabled=true`. That optional Ollama Deployment stores models on a PVC, pulls `model` on start, and only turns Ready once `ollama show <model>` succeeds.
 - No `/health` endpoint exists, so the app's probes hit `GET /` (the React `index.html`).
 - SSE streaming behind an Ingress needs proxy buffering off (nginx annotations are commented in `values.yaml`).
+- OpenShift: `route.enabled` renders a `route.openshift.io/v1` Route with `haproxy.router.openshift.io/timeout` (default 30s would cut long streams). No `runAsUser` is set anywhere so the restricted SCC can assign a random UID; the Ollama pod sets `HOME=/data` and mounts its PVC at `/data/.ollama` because that UID cannot write `/root`.
