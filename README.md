@@ -27,3 +27,7 @@ Voir [`openshift/README.md`](openshift/README.md) — build binaire via le regis
 ## Déployer avec Helm (OpenShift)
 
 Le chart `helm/ollama-agent/` remplace `openshift/deployment.yaml`. Contenu, réglages, migration depuis `oc apply` et commandes du quotidien : voir [`helm/README.md`](helm/README.md).
+
+## Déployer avec Argo CD (GitOps)
+
+`argocd/application.yaml` fait piloter ce même chart Helm par Argo CD (sync automatique depuis `main`) à la place de `helm install`/`helm upgrade` manuels. Voir [`argocd/README.md`](argocd/README.md).
