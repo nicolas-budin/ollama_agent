@@ -22,6 +22,8 @@ App disponible sur `http://localhost:8124`. Pour pointer vers un autre modèle o
 
 ## Déployer sur OpenShift
 
+Vue d'ensemble de toute la chaîne (image, OpenShift, Helm, Argo CD, CI) et des choix faits : [`docs/deploiement-openshift.md`](docs/deploiement-openshift.md).
+
 Voir [`openshift/README.md`](openshift/README.md) — build binaire via le registre interne, connectivité vers l'Ollama de l'hôte, et comment augmenter le disque/mémoire alloués à CRC.
 
 ## Déployer avec Helm (OpenShift)

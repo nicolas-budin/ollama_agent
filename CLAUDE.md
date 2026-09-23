@@ -75,6 +75,10 @@ A standalone one-shot reference script (non-streaming, single-turn) — the Olla
 
 `MODEL = "gemma4:26b"` is hardcoded in `ollama_client.py`, matching what's actually pulled locally (`ollama list`). Swap it there if you pull a different model.
 
+### Deployment docs
+
+`docs/deploiement-openshift.md` (French) is the end-to-end overview of the OpenShift chain — image build, OpenShift specifics, Helm, Argo CD, CI — and the reasoning/alternatives behind each choice. Keep it in sync when any of those change; per-folder READMEs hold the detailed commands.
+
 ### Helm chart (`helm/ollama-agent/`)
 
 OpenShift-only chart (documented in `helm/README.md`, in French) that replaces `openshift/deployment.yaml`; the BuildConfig/ImageStream in `openshift/buildconfig.yaml` stay outside Helm. Docs for it talk about OpenShift only — keep Kubernetes-generic options (Ingress, `kubectl`) out. Key constraints:
