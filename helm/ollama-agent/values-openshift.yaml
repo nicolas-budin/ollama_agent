@@ -14,6 +14,7 @@ image:
 
 # IP LAN du Mac qui fait tourner Ollama (host.crc.testing ne route pas vers
 # l'hôte sur ce setup, voir openshift/README.md). À ajuster si le DHCP change.
+# added line.
 ollamaUrl: http://192.168.1.119:11434/api/chat
 
 # Pas de ServiceAccount dédié dans le déploiement actuel.
