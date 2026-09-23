@@ -45,6 +45,26 @@ spec:
 - `syncPolicy.automated` : sync automatique dès qu'un commit change quelque chose sous `helm/ollama-agent/` sur `main`, `prune: true` supprime les objets retirés du chart, `selfHeal: true` corrige tout changement fait à la main sur le cluster.
 - `syncOptions: [CreateNamespace=true]` : Argo CD crée le namespace `ollama-agent` s'il n'existe pas déjà (il existe déjà ici, créé par `oc new-project`).
 
+## Deux sources possibles : Helm ou YAML brut
+
+`argocd/application-raw.yaml` est une variante de `argocd/application.yaml` qui pointe
+directement sur `openshift/deployment.yaml` (`source.directory`, pas Helm) au lieu du
+chart. Les deux fichiers définissent une `Application` du **même nom** (`ollama-agent`,
+namespace `openshift-gitops`) : comme un seul objet de ce nom peut exister dans le
+cluster, appliquer l'un ou l'autre **remplace** la source suivie par cette Application,
+plutôt que de créer deux Applications concurrentes qui se disputeraient les mêmes objets
+(`Deployment`/`Service`/`Route` dans `ollama-agent`).
+
+```bash
+oc apply -f argocd/application.yaml       # suit le chart Helm
+oc apply -f argocd/application-raw.yaml   # suit openshift/deployment.yaml directement
+```
+
+Passer de l'un à l'autre déclenche simplement un nouveau sync Argo CD sur la nouvelle
+source — pas besoin de `helm uninstall` ni de nettoyage manuel entre les deux (contrairement
+à la migration depuis une release Helm CLI ci-dessous, qui concernait un système *externe*
+à Argo CD).
+
 ## Migration depuis une release Helm manuelle
 
 Une release Helm installée à la main (`helm install`/`helm upgrade`) laisse des labels/annotations Helm CLI sur les objets. Si Argo CD reprend les mêmes objets sans qu'on l'ait désinstallée d'abord, ça peut créer des conflits de propriété entre les deux systèmes. Désinstaller proprement avant de laisser Argo CD tout recréer depuis git :
