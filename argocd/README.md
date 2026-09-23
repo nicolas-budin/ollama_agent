@@ -61,6 +61,30 @@ Puis enregistrer l'Application — elle doit exister comme objet dans le cluster
 oc apply -f argocd/application.yaml
 ```
 
+## Droits RBAC sur le namespace cible
+
+Par défaut, l'instance OpenShift GitOps ne peut gérer que les namespaces qu'on lui a
+explicitement autorisés — sans ça, la sync reste bloquée avec des erreurs de ce genre
+(visibles dans `oc get application ollama-agent -n openshift-gitops -o yaml`, sous
+`status.operationState.message`) :
+
+```text
+services is forbidden: User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller"
+cannot create resource "services" ... in namespace "ollama-agent"
+```
+
+(même chose pour `deployments` et `routes` — Argo CD retry automatiquement, mais échoue à
+chaque tentative tant que le droit manque). Corrige en labellisant le namespace cible :
+
+```bash
+oc label namespace ollama-agent argocd.argoproj.io/managed-by=openshift-gitops
+```
+
+Ce label déclenche (via l'opérateur GitOps) la création automatique d'un `RoleBinding`
+donnant les droits `admin` au service account d'Argo CD dans ce namespace. Une fois posé,
+la sync en cours (retry automatique) doit passer sans autre intervention — pas besoin de
+relancer manuellement `oc apply -f argocd/application.yaml`.
+
 ## Au quotidien
 
 ```bash
