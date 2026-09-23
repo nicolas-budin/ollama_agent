@@ -1,0 +1,4 @@
+# Label personnalisé du runner auto-hébergé sur le Mac (voir openshift/CI.md).
+self-hosted-runner:
+  labels:
+    - crc

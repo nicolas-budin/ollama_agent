@@ -88,7 +88,7 @@ oc get route ollama-agent -o jsonpath='{.spec.host}'
 ## Au quotidien
 
 ```bash
-# Nouveau code (inchangé)
+# Nouveau code : automatique à chaque push sur main (voir openshift/CI.md), ou à la main :
 oc start-build ollama-agent --from-dir=. --follow
 oc rollout restart deployment/ollama-agent
 

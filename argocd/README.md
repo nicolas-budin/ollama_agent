@@ -108,7 +108,8 @@ relancer manuellement `oc apply -f argocd/application.yaml`.
 ## Au quotidien
 
 ```bash
-# Nouveau code applicatif (inchangé, le build ne passe pas par Argo CD)
+# Nouveau code applicatif : le build ne passe pas par Argo CD. Automatique à chaque
+# push sur main via GitHub Actions (voir openshift/CI.md), ou à la main :
 oc start-build ollama-agent --from-dir=. --follow
 oc rollout restart deployment/ollama-agent
 

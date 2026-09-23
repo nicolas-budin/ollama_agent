@@ -1,0 +1,71 @@
+# Reconstruit l'image dans le registre interne d'OpenShift (CRC) à chaque push
+# sur main qui touche le code de l'appli, puis redémarre le Deployment pour
+# qu'il prenne la nouvelle image :latest.
+#
+# Tourne sur un runner auto-hébergé installé sur le Mac qui fait tourner CRC :
+# le cluster n'est pas joignable depuis Internet, donc ni un webhook GitHub ni
+# un runner hébergé par GitHub ne peuvent l'atteindre. Installation et sécurité :
+# voir openshift/CI.md.
+name: Build image OpenShift
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - requirements.txt
+      - "*.py"
+      - "frontend/**"
+      - .github/workflows/build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Un seul build à la fois : un push pendant un build attend la fin du précédent.
+concurrency:
+  group: openshift-build
+  cancel-in-progress: false
+
+env:
+  NAMESPACE: ollama-agent
+  BUILD_CONFIG: ollama-agent
+  DEPLOYMENT: ollama-agent
+
+jobs:
+  build:
+    runs-on: [self-hosted, macOS, crc]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ajouter le oc fourni par CRC au PATH
+        run: echo "$HOME/.crc/bin/oc" >> "$GITHUB_PATH"
+
+      # kubeconfig propre au job : ne touche pas à ~/.kube/config de l'utilisateur.
+      # --insecure-skip-tls-verify : l'API CRC a un certificat auto-signé et le
+      # trafic reste local au Mac (api.crc.testing -> VM CRC).
+      - name: Connexion au cluster
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kubeconfig
+        run: |
+          oc login "${{ vars.OPENSHIFT_SERVER }}" \
+            --token="${{ secrets.OPENSHIFT_TOKEN }}" \
+            --insecure-skip-tls-verify=true
+          oc whoami
+
+      - name: Build de l'image (BuildConfig binaire)
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kubeconfig
+        run: oc start-build "$BUILD_CONFIG" -n "$NAMESPACE" --from-dir=. --follow --wait
+
+      # Pas de déclencheur d'image OpenShift : il réécrirait l'image du
+      # Deployment et Argo CD (selfHeal) la remettrait aussitôt. Un rollout
+      # restart n'ajoute qu'une annotation, qu'Argo CD laisse en place.
+      - name: Redéploiement
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kubeconfig
+        run: |
+          oc rollout restart "deployment/$DEPLOYMENT" -n "$NAMESPACE"
+          oc rollout status "deployment/$DEPLOYMENT" -n "$NAMESPACE" --timeout=5m

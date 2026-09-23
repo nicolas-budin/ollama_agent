@@ -31,3 +31,7 @@ Le chart `helm/ollama-agent/` remplace `openshift/deployment.yaml`. Contenu, ré
 ## Déployer avec Argo CD (GitOps)
 
 `argocd/application.yaml` fait piloter ce même chart Helm par Argo CD (sync automatique depuis `main`) à la place de `helm install`/`helm upgrade` manuels. Voir [`argocd/README.md`](argocd/README.md).
+
+## CI : build automatique de l'image
+
+À chaque push sur `main` qui touche le code, GitHub Actions reconstruit l'image dans le registre interne d'OpenShift et redémarre l'appli, via un runner installé sur le Mac qui fait tourner CRC. Voir [`openshift/CI.md`](openshift/CI.md).

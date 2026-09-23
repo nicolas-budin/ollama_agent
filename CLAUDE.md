@@ -85,3 +85,12 @@ OpenShift-only chart (documented in `helm/README.md`, in French) that replaces `
 - Exposure is a `route.openshift.io/v1` Route (enabled by default) with `haproxy.router.openshift.io/timeout` (default 30s would cut long streams).
 - `values-openshift.yaml` mirrors `openshift/deployment.yaml` (the CRC setup: internal-registry image, `OLLAMA_URL` on the Mac's LAN IP, plain-HTTP Route).
 - No `runAsUser` is set so the restricted SCC can assign a random UID (the app writes nothing to disk).
+
+### CI (`.github/workflows/build.yml`, documented in `openshift/CI.md`)
+
+- Runs on a **self-hosted runner on the Mac** (`runs-on: [self-hosted, macOS, crc]`): CRC isn't reachable from the internet, so GitHub-hosted runners and BuildConfig webhooks can't be used. Custom label `crc` is declared in `.github/actionlint.yaml`.
+- Triggered on push to `main` touching app code (`Dockerfile`, `*.py`, `requirements.txt`, `frontend/**`…) or manually; changes under `helm/`/`argocd/` are Argo CD's job, not a build.
+- Steps: `oc login` with the `github-ci` service account token (`secrets.OPENSHIFT_TOKEN`, `vars.OPENSHIFT_SERVER`, job-local `KUBECONFIG`) → `oc start-build --from-dir=. --follow --wait` → `oc rollout restart` + `rollout status`. The SA and its minimal Role live in `openshift/ci-serviceaccount.yaml`.
+- Deliberately **no** `image.openshift.io/triggers` on the Deployment: Argo CD `selfHeal` would revert the image field and fight the trigger. `rollout restart` only adds a pod-template annotation Argo CD ignores.
+- The repo is public: fork-PR workflows must require approval, since a self-hosted runner executes workflow code on the Mac.
+
