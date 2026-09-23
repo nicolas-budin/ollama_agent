@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama-agent
+  labels:
+    app: ollama-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama-agent
+  template:
+    metadata:
+      labels:
+        app: ollama-agent
+    spec:
+      containers:
+        - name: ollama-agent
+          image: image-registry.openshift-image-registry.svc:5000/ollama-agent/ollama-agent:latest
+          ports:
+            - containerPort: 8124
+          env:
+            # IP LAN de la machine qui fait tourner Ollama, vue depuis le
+            # réseau du cluster CRC (host.crc.testing / host.docker.internal
+            # ne fonctionnent pas sur ce setup — voir openshift/README.md).
+            # À ajuster si l'IP change (DHCP).
+            - name: OLLAMA_URL
+              value: "http://192.168.1.119:11434/api/chat"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8124
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8124
+            initialDelaySeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama-agent
+  labels:
+    app: ollama-agent
+spec:
+  selector:
+    app: ollama-agent
+  ports:
+    - port: 8124
+      targetPort: 8124
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ollama-agent
+spec:
+  to:
+    kind: Service
+    name: ollama-agent
+  port:
+    targetPort: 8124
