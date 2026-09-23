@@ -99,3 +99,9 @@ fonctionne normalement sous l'UID aléatoire non-root qu'OpenShift assigne via l
 oc start-build ollama-agent --from-dir=. --follow
 oc rollout restart deployment/ollama-agent
 ```
+
+## Alternative : déploiement avec Helm
+
+Le chart `helm/ollama-agent/` remplace `openshift/deployment.yaml` (Deployment + Service +
+Route) ; le build ci-dessus ne change pas. Détails, migration depuis `oc apply`, mises à
+jour et rollback : voir [`helm/README.md`](../helm/README.md).

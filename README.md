@@ -23,3 +23,7 @@ App disponible sur `http://localhost:8124`. Pour pointer vers un autre modèle o
 ## Déployer sur OpenShift
 
 Voir [`openshift/README.md`](openshift/README.md) — build binaire via le registre interne, connectivité vers l'Ollama de l'hôte, et comment augmenter le disque/mémoire alloués à CRC.
+
+## Déployer avec Helm (OpenShift)
+
+Le chart `helm/ollama-agent/` remplace `openshift/deployment.yaml`. Contenu, réglages, migration depuis `oc apply` et commandes du quotidien : voir [`helm/README.md`](helm/README.md).

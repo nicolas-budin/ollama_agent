@@ -1,0 +1,38 @@
+# Valeurs reproduisant openshift/deployment.yaml (cluster CRC, projet ollama-agent).
+#   helm upgrade --install ollama-agent ./helm/ollama-agent -n ollama-agent \
+#     -f helm/ollama-agent/values-openshift.yaml
+# L'image reste construite par openshift/buildconfig.yaml (oc start-build),
+# le chart ne gère que Deployment + Service + Route.
+
+image:
+  # ImageStream alimentée par le BuildConfig (registre interne du cluster).
+  repository: image-registry.openshift-image-registry.svc:5000/ollama-agent/ollama-agent
+  tag: latest
+  # :latest est réécrit à chaque build : Always pour que `oc rollout restart`
+  # récupère bien la nouvelle image.
+  pullPolicy: Always
+
+# IP LAN du Mac qui fait tourner Ollama (host.crc.testing ne route pas vers
+# l'hôte sur ce setup, voir openshift/README.md). À ajuster si le DHCP change.
+ollamaUrl: http://192.168.1.119:11434/api/chat
+
+# Pas de ServiceAccount dédié dans le déploiement actuel.
+serviceAccount:
+  create: false
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 3
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 10
+
+route:
+  # Comme la Route actuelle : HTTP simple, host généré par OpenShift
+  # (ollama-agent-ollama-agent.apps-crc.testing). Passer à true pour du HTTPS.
+  tls:
+    enabled: false

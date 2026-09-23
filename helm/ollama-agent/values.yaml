@@ -1,0 +1,74 @@
+# ⚠️ L'historique de conversation vit en mémoire dans le process (un seul
+# historique partagé, voir ollama_client._history) : garder replicaCount à 1.
+# Plusieurs replicas = plusieurs historiques divergents selon le pod qui répond.
+replicaCount: 1
+
+image:
+  # Image construite depuis le Dockerfile à la racine du repo par le
+  # BuildConfig OpenShift (openshift/buildconfig.yaml + oc start-build).
+  repository: ollama-agent
+  tag: ""  # par défaut : .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Modèle demandé à Ollama (variable OLLAMA_MODEL).
+model: gemma4:26b
+
+# URL de l'API chat d'Ollama (variable OLLAMA_URL). Ollama tourne hors du
+# chart (machine hôte, autre serveur…) : il doit être joignable depuis les pods.
+ollamaUrl: http://ollama:11434/api/chat
+
+extraEnv: []
+#  - name: FOO
+#    value: bar
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8124
+
+# Route OpenShift : expose l'appli hors du cluster.
+route:
+  enabled: true
+  host: ""  # vide : OpenShift génère <nom>-<projet>.<domaine-apps>
+  # Timeout HAProxy par défaut = 30 s : trop court pour une longue réponse
+  # streamée par un modèle 26b.
+  timeout: 10m
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+resources: {}
+#  requests:
+#    cpu: 100m
+#    memory: 128Mi
+#  limits:
+#    memory: 256Mi
+
+# Pas d'endpoint /health dédié : GET / sert l'index.html du build React.
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
