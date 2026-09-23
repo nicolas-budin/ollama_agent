@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ollama-agent
+  namespace: openshift-gitops
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nicolas-budin/ollama_agent.git
+    targetRevision: main
+    path: helm/ollama-agent
+    helm:
+      valueFiles:
+        - values-openshift.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ollama-agent
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
