@@ -74,3 +74,12 @@ A standalone one-shot reference script (non-streaming, single-turn) — the Olla
 ### Model
 
 `MODEL = "gemma4:26b"` is hardcoded in `ollama_client.py`, matching what's actually pulled locally (`ollama list`). Swap it there if you pull a different model.
+
+### Helm chart (`helm/ollama-agent/`)
+
+Deploys the Docker image (root `Dockerfile`) to Kubernetes. Key constraints baked into the chart:
+
+- `replicaCount` is forced to 1 (template `fail`s otherwise) and the Deployment uses `strategy: Recreate` — the shared `_history` lives in process memory, so two pods would mean two diverging conversations.
+- `OLLAMA_URL` comes from `ollamaUrl` (external Ollama), or points at the in-chart Ollama Service when `ollama.enabled=true`. That optional Ollama Deployment stores models on a PVC, pulls `model` on start, and only turns Ready once `ollama show <model>` succeeds.
+- No `/health` endpoint exists, so the app's probes hit `GET /` (the React `index.html`).
+- SSE streaming behind an Ingress needs proxy buffering off (nginx annotations are commented in `values.yaml`).

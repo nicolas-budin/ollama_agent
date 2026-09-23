@@ -1,0 +1,17 @@
+ollama-agent déployé — modèle : {{ .Values.model }}
+Ollama : {{ include "ollama-agent.ollamaUrl" . }}
+{{- if .Values.ollama.enabled }}
+(Ollama embarqué : le premier démarrage télécharge le modèle, suivre avec
+  kubectl logs -f deploy/{{ include "ollama-agent.ollama.fullname" . }} -n {{ .Release.Namespace }})
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+URL :
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+Accès local :
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "ollama-agent.fullname" . }} 8124:{{ .Values.service.port }}
+  puis http://localhost:8124
+{{- end }}
