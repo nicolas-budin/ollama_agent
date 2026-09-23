@@ -19,3 +19,7 @@ docker run -d --add-host=host.docker.internal:host-gateway -p 8124:8124 ollama-a
 ```
 
 App disponible sur `http://localhost:8124`. Pour pointer vers un autre modèle ou une autre URL Ollama : `-e OLLAMA_MODEL=... -e OLLAMA_URL=...`.
+
+## Déployer sur OpenShift
+
+Voir [`openshift/README.md`](openshift/README.md) — build binaire via le registre interne, connectivité vers l'Ollama de l'hôte, et comment augmenter le disque/mémoire alloués à CRC.
