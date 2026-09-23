@@ -4,13 +4,8 @@ Ollama : {{ .Values.ollamaUrl }}
 {{- if .Values.route.enabled }}
 URL (Route OpenShift) :
   oc get route {{ include "ollama-agent.fullname" . }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.host}'
-{{- else if .Values.ingress.enabled }}
-URL :
-{{- range .Values.ingress.hosts }}
-  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
-{{- end }}
 {{- else }}
 Accès local :
-  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "ollama-agent.fullname" . }} 8124:{{ .Values.service.port }}
+  oc port-forward -n {{ .Release.Namespace }} svc/{{ include "ollama-agent.fullname" . }} 8124:{{ .Values.service.port }}
   puis http://localhost:8124
 {{- end }}

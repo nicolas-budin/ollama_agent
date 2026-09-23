@@ -24,24 +24,6 @@ App disponible sur `http://localhost:8124`. Pour pointer vers un autre modèle o
 
 Voir [`openshift/README.md`](openshift/README.md) — build binaire via le registre interne, connectivité vers l'Ollama de l'hôte, et comment augmenter le disque/mémoire alloués à CRC.
 
-## Déployer sur Kubernetes (Helm)
+## Déployer avec Helm (OpenShift)
 
-Le chart est dans `helm/ollama-agent/`. Construire et pousser l'image dans un registry accessible au cluster :
-
-```bash
-docker build -t <registry>/ollama-agent:0.1.0 . && docker push <registry>/ollama-agent:0.1.0
-```
-
-Ollama n'est pas déployé par le chart : il doit tourner ailleurs (machine hôte, autre serveur) et être joignable depuis les pods.
-
-```bash
-helm install ollama-agent ./helm/ollama-agent \
-  --set image.repository=<registry>/ollama-agent \
-  --set ollamaUrl=http://<hôte-ollama>:11434/api/chat
-```
-
-Puis `kubectl port-forward svc/ollama-agent 8124:8124` → `http://localhost:8124`, ou activer `ingress.enabled` (penser à désactiver le buffering du proxy pour le streaming SSE, voir `values.yaml`).
-
-`replicaCount` doit rester à 1 : l'historique de conversation est en mémoire dans le pod (le chart refuse une valeur > 1).
-
-Sur OpenShift, voir la section Helm de [`openshift/README.md`](openshift/README.md) (valeurs prêtes dans `helm/ollama-agent/values-openshift.yaml`).
+Le chart `helm/ollama-agent/` remplace `openshift/deployment.yaml`. Contenu, réglages, migration depuis `oc apply` et commandes du quotidien : voir [`helm/README.md`](helm/README.md).

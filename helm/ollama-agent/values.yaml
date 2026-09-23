@@ -4,8 +4,8 @@
 replicaCount: 1
 
 image:
-  # Image construite depuis le Dockerfile à la racine du repo :
-  #   docker build -t <registry>/ollama-agent:<tag> . && docker push ...
+  # Image construite depuis le Dockerfile à la racine du repo par le
+  # BuildConfig OpenShift (openshift/buildconfig.yaml + oc start-build).
   repository: ollama-agent
   tag: ""  # par défaut : .Chart.AppVersion
   pullPolicy: IfNotPresent
@@ -40,28 +40,9 @@ service:
   type: ClusterIP
   port: 8124
 
-ingress:
-  enabled: false
-  className: ""
-  # Les réponses sont streamées en SSE : désactiver le buffering du proxy et
-  # allonger les timeouts, sinon la réponse arrive d'un bloc (ou est coupée).
-  annotations: {}
-  #  nginx.ingress.kubernetes.io/proxy-buffering: "off"
-  #  nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-  hosts:
-    - host: ollama-agent.local
-      paths:
-        - path: /
-          pathType: Prefix
-  tls: []
-  #  - secretName: ollama-agent-tls
-  #    hosts:
-  #      - ollama-agent.local
-
-# --- OpenShift ---
-# Route OpenShift (alternative à l'Ingress ci-dessus, n'activer que l'un des deux).
+# Route OpenShift : expose l'appli hors du cluster.
 route:
-  enabled: false
+  enabled: true
   host: ""  # vide : OpenShift génère <nom>-<projet>.<domaine-apps>
   # Timeout HAProxy par défaut = 30 s : trop court pour une longue réponse
   # streamée par un modèle 26b.

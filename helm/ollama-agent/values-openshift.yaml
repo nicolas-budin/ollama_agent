@@ -32,7 +32,6 @@ livenessProbe:
   initialDelaySeconds: 10
 
 route:
-  enabled: true
   # Comme la Route actuelle : HTTP simple, host généré par OpenShift
   # (ollama-agent-ollama-agent.apps-crc.testing). Passer à true pour du HTTPS.
   tls:

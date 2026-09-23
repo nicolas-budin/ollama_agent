@@ -103,43 +103,5 @@ oc rollout restart deployment/ollama-agent
 ## Alternative : déploiement avec Helm
 
 Le chart `helm/ollama-agent/` remplace `openshift/deployment.yaml` (Deployment + Service +
-Route). Le build ne change pas : `openshift/buildconfig.yaml` + `oc start-build` comme
-ci-dessus. `helm/ollama-agent/values-openshift.yaml` reprend exactement la config actuelle
-(image du registre interne, `OLLAMA_URL` sur l'IP LAN, probes, Route HTTP).
-
-Différences par rapport à `deployment.yaml` :
-- Route avec `haproxy.router.openshift.io/timeout: 10m` (le défaut de 30 s peut couper
-  une longue réponse streamée) ;
-- `strategy: Recreate` et `replicaCount` bloqué à 1 (historique en mémoire) ;
-- `imagePullPolicy: Always`, pour que `oc rollout restart` prenne bien le dernier build.
-
-### Migration depuis `oc apply`
-
-Les objets portent les mêmes noms (`ollama-agent`) mais pas les mêmes labels, et le
-sélecteur d'un Deployment n'est pas modifiable : Helm ne peut pas les reprendre. Il faut
-les supprimer d'abord (coupure de quelques secondes ; l'URL de la Route reste la même) :
-
-```bash
-oc project ollama-agent
-oc delete deployment/ollama-agent service/ollama-agent route/ollama-agent
-helm install ollama-agent ./helm/ollama-agent -f helm/ollama-agent/values-openshift.yaml
-oc get route ollama-agent -o jsonpath='{.spec.host}'
-```
-
-Ne pas supprimer le `BuildConfig` ni l'`ImageStream` : ils restent gérés par `oc apply`.
-
-### Ensuite
-
-```bash
-# Nouveau code : inchangé
-oc start-build ollama-agent --from-dir=. --follow
-oc rollout restart deployment/ollama-agent
-
-# Changement d'IP d'Ollama : passer par Helm (un `oc set env` serait écrasé au prochain upgrade)
-helm upgrade ollama-agent ./helm/ollama-agent -f helm/ollama-agent/values-openshift.yaml \
-  --set ollamaUrl=http://<nouvelle-ip>:11434/api/chat
-
-# Revenir en arrière
-helm rollback ollama-agent        # version précédente du chart
-helm uninstall ollama-agent && oc apply -f openshift/deployment.yaml   # retour aux manifests
-```
+Route) ; le build ci-dessus ne change pas. Détails, migration depuis `oc apply`, mises à
+jour et rollback : voir [`helm/README.md`](../helm/README.md).

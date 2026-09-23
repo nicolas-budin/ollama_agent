@@ -77,10 +77,11 @@ A standalone one-shot reference script (non-streaming, single-turn) — the Olla
 
 ### Helm chart (`helm/ollama-agent/`)
 
-Deploys the Docker image (root `Dockerfile`) to Kubernetes. Key constraints baked into the chart:
+OpenShift-only chart (documented in `helm/README.md`, in French) that replaces `openshift/deployment.yaml`; the BuildConfig/ImageStream in `openshift/buildconfig.yaml` stay outside Helm. Docs for it talk about OpenShift only — keep Kubernetes-generic options (Ingress, `kubectl`) out. Key constraints:
 
 - `replicaCount` is forced to 1 (template `fail`s otherwise) and the Deployment uses `strategy: Recreate` — the shared `_history` lives in process memory, so two pods would mean two diverging conversations.
-- `OLLAMA_URL` comes from `ollamaUrl`. The chart deliberately does **not** deploy Ollama: it always runs outside the cluster (on CRC, on the Mac) and must be reachable from the pods.
+- `OLLAMA_URL` comes from `ollamaUrl`. The chart deliberately does **not** deploy Ollama: it runs outside the cluster (on CRC, on the Mac) and must be reachable from the pods.
 - No `/health` endpoint exists, so the app's probes hit `GET /` (the React `index.html`).
-- SSE streaming behind an Ingress needs proxy buffering off (nginx annotations are commented in `values.yaml`).
-- OpenShift: `values-openshift.yaml` mirrors `openshift/deployment.yaml` (the CRC setup: internal-registry image built by `openshift/buildconfig.yaml`, `OLLAMA_URL` on the Mac's LAN IP, plain-HTTP Route); the chart replaces `deployment.yaml` only, BuildConfig/ImageStream stay outside Helm. `route.enabled` renders a `route.openshift.io/v1` Route with `haproxy.router.openshift.io/timeout` (default 30s would cut long streams). No `runAsUser` is set so the restricted SCC can assign a random UID (the app writes nothing to disk).
+- Exposure is a `route.openshift.io/v1` Route (enabled by default) with `haproxy.router.openshift.io/timeout` (default 30s would cut long streams).
+- `values-openshift.yaml` mirrors `openshift/deployment.yaml` (the CRC setup: internal-registry image, `OLLAMA_URL` on the Mac's LAN IP, plain-HTTP Route).
+- No `runAsUser` is set so the restricted SCC can assign a random UID (the app writes nothing to disk).
