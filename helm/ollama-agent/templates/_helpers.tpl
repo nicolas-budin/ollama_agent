@@ -41,29 +41,3 @@ app.kubernetes.io/component: web
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
-
-{{/* --- Ollama embarqué --- */}}
-{{- define "ollama-agent.ollama.fullname" -}}
-{{- printf "%s-ollama" (include "ollama-agent.fullname" .) | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{- define "ollama-agent.ollama.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "ollama-agent.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/component: ollama
-{{- end }}
-
-{{- define "ollama-agent.ollama.labels" -}}
-helm.sh/chart: {{ include "ollama-agent.chart" . }}
-{{ include "ollama-agent.ollama.selectorLabels" . }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end }}
-
-{{/* URL effective passée à l'app via OLLAMA_URL. */}}
-{{- define "ollama-agent.ollamaUrl" -}}
-{{- if .Values.ollama.enabled }}
-{{- printf "http://%s:%v/api/chat" (include "ollama-agent.ollama.fullname" .) .Values.ollama.service.port }}
-{{- else }}
-{{- .Values.ollamaUrl }}
-{{- end }}
-{{- end }}

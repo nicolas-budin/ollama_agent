@@ -32,21 +32,12 @@ Le chart est dans `helm/ollama-agent/`. Construire et pousser l'image dans un re
 docker build -t <registry>/ollama-agent:0.1.0 . && docker push <registry>/ollama-agent:0.1.0
 ```
 
-**Ollama déjà disponible** (dans le cluster ou ailleurs) :
+Ollama n'est pas déployé par le chart : il doit tourner ailleurs (machine hôte, autre serveur) et être joignable depuis les pods.
 
 ```bash
 helm install ollama-agent ./helm/ollama-agent \
   --set image.repository=<registry>/ollama-agent \
   --set ollamaUrl=http://<hôte-ollama>:11434/api/chat
-```
-
-**Ollama déployé par le chart** (PVC de 50 Gi pour les modèles, le modèle est tiré au premier démarrage) :
-
-```bash
-helm install ollama-agent ./helm/ollama-agent \
-  --set image.repository=<registry>/ollama-agent \
-  --set ollama.enabled=true
-# GPU : --set 'ollama.resources.limits.nvidia\.com/gpu=1'
 ```
 
 Puis `kubectl port-forward svc/ollama-agent 8124:8124` → `http://localhost:8124`, ou activer `ingress.enabled` (penser à désactiver le buffering du proxy pour le streaming SSE, voir `values.yaml`).

@@ -17,8 +17,8 @@ fullnameOverride: ""
 # Modèle demandé à Ollama (variable OLLAMA_MODEL).
 model: gemma4:26b
 
-# URL de l'API chat d'un Ollama externe (variable OLLAMA_URL).
-# Ignorée si ollama.enabled=true : on pointe alors sur le Service interne.
+# URL de l'API chat d'Ollama (variable OLLAMA_URL). Ollama tourne hors du
+# chart (machine hôte, autre serveur…) : il doit être joignable depuis les pods.
 ollamaUrl: http://ollama:11434/api/chat
 
 extraEnv: []
@@ -91,31 +91,3 @@ readinessProbe:
 nodeSelector: {}
 tolerations: []
 affinity: {}
-
-# --- Ollama embarqué (optionnel) ---
-# Par défaut on suppose un Ollama existant joignable via ollamaUrl.
-# Avec enabled=true, le chart déploie aussi Ollama (1 replica + PVC pour les
-# modèles) et y télécharge `model` au démarrage.
-ollama:
-  enabled: false
-  image:
-    repository: ollama/ollama
-    tag: latest
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 11434
-  # Télécharge `model` au démarrage du pod (en tâche de fond, idempotent).
-  pullModelOnStart: true
-  persistence:
-    enabled: true
-    # gemma4:26b pèse ~17 Go : prévoir large.
-    size: 50Gi
-    storageClass: ""
-    accessMode: ReadWriteOnce
-  resources: {}
-  #  limits:
-  #    nvidia.com/gpu: 1
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}

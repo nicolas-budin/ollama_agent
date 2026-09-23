@@ -37,8 +37,3 @@ route:
   # (ollama-agent-ollama-agent.apps-crc.testing). Passer à true pour du HTTPS.
   tls:
     enabled: false
-
-# Ollama tourne sur le Mac, pas dans le cluster (la VM CRC n'a pas la RAM
-# pour gemma4:26b).
-ollama:
-  enabled: false

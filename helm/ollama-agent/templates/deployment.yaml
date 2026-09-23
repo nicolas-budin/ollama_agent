@@ -42,7 +42,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: OLLAMA_URL
-              value: {{ include "ollama-agent.ollamaUrl" . | quote }}
+              value: {{ .Values.ollamaUrl | quote }}
             - name: OLLAMA_MODEL
               value: {{ .Values.model | quote }}
             {{- with .Values.extraEnv }}
