@@ -83,16 +83,50 @@ Le workflow utilise le `oc` fourni par CRC (`~/.crc/bin/oc`). Le runner doit don
 
 ### 4. Sécurité : le dépôt est public
 
-Un runner auto-hébergé exécute le code des workflows **sur votre Mac**. Sur un dépôt public, quelqu'un pourrait ouvrir une PR depuis un fork contenant un workflow qui cible ce runner. À faire :
+#### Qui peut modifier le dépôt
 
-- **Settings** → **Actions** → **General** → *Fork pull request workflows from outside collaborators* → **Require approval for all outside collaborators**. Aucun workflow de fork ne tourne sans votre accord explicite. **N'approuvez jamais une PR externe qui modifie `.github/`.**
-- De préférence, faites tourner le runner sous un **compte macOS dédié**, sans accès à vos fichiers personnels. CRC doit alors être installé et lancé sous ce même compte.
-- Le secret `OPENSHIFT_TOKEN` n'est pas transmis aux workflows déclenchés par des forks, et ses droits sont limités (étape 1).
-- Le workflow a le droit d'écrire dans le dépôt (`contents: write`), pour pousser le commit du tag. Ce droit n'est donné qu'aux push sur `main` et aux lancements manuels, pas aux PR.
+Le dépôt est public, mais **seuls ses collaborateurs peuvent y pousser des commits**. Aujourd'hui, il n'y en a qu'un : son propriétaire (liste dans **Settings** → **Collaborators**).
+
+| Action | Possible pour un inconnu ? |
+|---|---|
+| Lire le code, le cloner | oui |
+| Faire une copie sur son compte (*fork*) et la modifier | oui, sur **sa** copie uniquement |
+| Ouvrir une issue ou proposer une PR | oui, mais rien n'entre dans le code sans que le propriétaire fusionne la PR |
+| Pousser un commit sur `main` ou une autre branche | **non** |
+
+Peuvent aussi écrire dans le dépôt, au nom du propriétaire :
+- les **applications GitHub** installées avec un droit d'écriture (liste dans **Settings** → **GitHub Apps**) ;
+- les **clés de déploiement** en écriture (**Settings** → **Deploy keys**) : vérifier qu'il n'y en a pas d'inconnue ;
+- **ce workflow de CI**, via son jeton temporaire (voir plus bas).
+
+#### Le vrai risque : le runner exécute du code sur le Mac
+
+Personne d'extérieur ne peut écrire dans le dépôt. En revanche, un runner auto-hébergé exécute le code des workflows **directement sur le Mac**. Sur un dépôt public, n'importe qui peut ouvrir une PR depuis un fork. Si cette PR ajoute un workflow qui cible ce runner (`runs-on: self-hosted`), ce code pourrait tourner sur le Mac.
+
+**À faire avant d'installer le runner :**
+- **Settings** → **Actions** → **General** → *Fork pull request workflows from outside collaborators* → **Require approval for all outside collaborators**. Aucun workflow venant d'un fork ne tourne sans approbation explicite.
+- **Ne jamais approuver** l'exécution des workflows d'une PR externe qui modifie le dossier `.github/`. Dans le doute, lire le diff avant de cliquer sur *Approve and run*.
+- De préférence, faire tourner le runner sous un **compte macOS dédié**, sans accès aux fichiers personnels. CRC doit alors être installé et lancé sous ce même compte.
+
+Ce qui limite les dégâts, même en cas d'erreur :
+- le secret `OPENSHIFT_TOKEN` n'est **jamais transmis** aux workflows déclenchés par des forks ;
+- ce token n'a que des droits minimaux dans le seul namespace `ollama-agent` (étape 1).
+
+#### Le droit d'écriture du workflow
+
+Le workflow doit pousser le commit qui met à jour `image.tag`. Pour ça, la ligne `permissions: contents: write` donne le droit d'écriture au **jeton temporaire** que GitHub fournit à chaque exécution (`GITHUB_TOKEN`) :
+- ce jeton ne donne accès **qu'à ce dépôt** et **expire à la fin du job** ;
+- il n'obtient ce droit que pour les push sur `main` et les lancements manuels. GitHub ne donne jamais de droit d'écriture au jeton des PR venant de forks ;
+- un commit poussé avec ce jeton ne déclenche pas d'autre workflow (protection de GitHub contre les boucles) ;
+- aucun réglage supplémentaire n'est nécessaire dans GitHub : sur un dépôt personnel, la ligne `permissions:` suffit.
 
 ### 5. Si `main` est protégée
 
-Le workflow pousse directement sur `main`. Si une règle de protection de branche l'interdit, autorisez `github-actions[bot]` à contourner la règle (**Settings** → **Branches** / **Rules**), ou demandez-moi une variante qui ouvre une PR au lieu de pousser.
+`main` n'est pas protégée aujourd'hui, donc rien à faire. Si une règle du type « PR obligatoire avant fusion » est activée un jour, le push direct de la CI sera refusé : le job échouera à l'étape « Mise à jour du tag dans le chart Helm », après trois tentatives. Trois solutions :
+
+1. **Laisser `main` sans protection.** C'est le plus simple pour un projet personnel : seuls les collaborateurs peuvent pousser.
+2. **Autoriser une exception pour la CI** dans la règle (**Settings** → **Rules**, liste *Bypass*). Selon ce que GitHub permet d'y ajouter, il faudra peut-être donner à la CI une clé de déploiement en écriture plutôt que le jeton automatique.
+3. **Faire ouvrir une PR par la CI** au lieu de pousser directement : chaque déploiement se valide d'un clic. Plus de contrôle, mais ce n'est plus automatique.
 
 ## Vérifier
 
