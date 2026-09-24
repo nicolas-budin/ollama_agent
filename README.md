@@ -36,4 +36,4 @@ Le chart `helm/ollama-agent/` remplace `openshift/deployment.yaml`. Contenu, ré
 
 ## CI : build automatique de l'image
 
-À chaque push sur `main` qui touche le code, GitHub Actions reconstruit l'image dans le registre interne d'OpenShift et redémarre l'appli, via un runner installé sur le Mac qui fait tourner CRC. Voir [`openshift/CI.md`](openshift/CI.md).
+À chaque push sur `main` qui touche le code, GitHub Actions (via un runner installé sur le Mac qui fait tourner CRC) reconstruit l'image dans le registre interne d'OpenShift, écrit son tag dans le chart Helm et pousse ce commit ; Argo CD redéploie. Voir [`openshift/CI.md`](openshift/CI.md).

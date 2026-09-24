@@ -8,12 +8,13 @@ Ce document explique toute la chaîne qui mène du code source à l'appli en lig
  ┌──────────── Mac ──────────────────────────────────────────────────────────┐
  │                                                                           │
  │  git push main ──► GitHub ──► runner GitHub Actions (sur le Mac)          │
- │                                   │ oc start-build --from-dir=.           │
- │                                   ▼                                       │
- │   ┌──────── VM CRC (OpenShift) ────────────────────────────────────┐      │
- │   │  BuildConfig ──► ImageStream ollama-agent:latest (registre     │      │
+ │                      ▲            │ 1. oc start-build --from-dir=.        │
+ │                      │            │ 2. oc tag … ollama-agent:<sha>        │
+ │   3. commit du tag <sha> dans     │                                       │
+ │      values-openshift.yaml ───────┘                                       │
+ │   ┌──────── VM CRC (OpenShift) ▼───────────────────────────────────┐      │
+ │   │  BuildConfig ──► ImageStream ollama-agent:<sha> (registre      │      │
  │   │                            interne)                            │      │
- │   │                                   │ oc rollout restart         │      │
  │   │  Argo CD ──(chart Helm depuis Git)──► Deployment ──► Pod appli │      │
  │   │                                        Service ──► Route ◄──── navigateur
  │   └────────────────────────────────────────────│───────────────────┘      │
@@ -26,8 +27,10 @@ Il y a deux circuits indépendants :
 
 | Ce qui change | Qui s'en occupe | Résultat |
 |---|---|---|
-| Le **code** (`*.py`, `frontend/`, `Dockerfile`…) | **GitHub Actions** + runner sur le Mac | nouvelle image, puis redémarrage du pod |
-| La **configuration** (`helm/`) | **Argo CD** | le cluster est aligné sur Git |
+| Le **code** (`*.py`, `frontend/`, `Dockerfile`…) | **GitHub Actions** + runner sur le Mac | nouvelle image avec un tag unique, écrit dans `helm/` par un commit |
+| La **configuration** (`helm/`), y compris ce tag | **Argo CD** | le cluster est aligné sur Git, nouveau pod si l'image a changé |
+
+Les deux circuits se rejoignent dans Git : la CI ne touche jamais directement au Deployment. **C'est Git qui décide de ce qui tourne**, image comprise.
 
 ## 1. L'image : un seul conteneur pour tout
 
@@ -87,7 +90,7 @@ Le chart `helm/ollama-agent/` remplace `openshift/deployment.yaml` (Deployment +
 - **Réservé à OpenShift** : pas d'Ingress ni de `kubectl`.
 - **Ollama n'est pas déployé par le chart** : il tourne sur le Mac, et la VM CRC n'aurait pas la mémoire nécessaire pour `gemma4:26b`.
 - **Pas d'endpoint `/health`** dans l'appli : les vérifications de santé appellent `GET /`, la page React.
-- **`imagePullPolicy: Always`** : l'image s'appelle toujours `:latest`. Il faut donc la retélécharger à chaque redémarrage pour obtenir la dernière version.
+- **Tag d'image unique par build** (SHA court du commit, écrit par la CI dans `values-openshift.yaml`) plutôt que `:latest` : on sait quelle version tourne, et chaque tag ne change jamais, d'où `imagePullPolicy: IfNotPresent`.
 
 **Passer des YAML au chart :** Helm ne peut pas reprendre des objets qu'il n'a pas créés, et le sélecteur d'un Deployment n'est pas modifiable. Il faut supprimer les objets existants avant l'installation (coupure de quelques secondes). Le BuildConfig et l'ImageStream ne sont pas touchés.
 
@@ -119,13 +122,21 @@ Un **runner auto-hébergé** est un petit programme GitHub installé sur le Mac.
 Le workflow `.github/workflows/build.yml` :
 1. se déclenche à chaque push sur `main` qui touche le code (`Dockerfile`, `*.py`, `requirements.txt`, `frontend/**`…), ou à la main ;
 2. se connecte au cluster avec le compte de service `github-ci`, dont les droits sont limités au strict nécessaire ;
-3. lance `oc start-build --from-dir=. --follow --wait` : nouvelle image dans le registre interne ;
-4. lance `oc rollout restart` : un nouveau pod démarre avec la nouvelle image.
+3. lance `oc start-build --from-dir=.` : nouvelle image dans le registre interne ;
+4. lui donne un **tag unique**, le SHA court du commit (`oc tag … ollama-agent:<sha>`), à partir du digest produit par ce build ;
+5. écrit ce tag dans `helm/ollama-agent/values-openshift.yaml` et **pousse ce commit sur `main`** ;
+6. Argo CD voit le commit et redéploie le pod avec la nouvelle image.
 
-Un changement dans `helm/` ou `argocd/` ne lance pas de build : c'est le travail d'Argo CD.
+Un changement dans `helm/` ou `argocd/` ne lance pas de build : c'est le travail d'Argo CD. C'est aussi ce qui évite une boucle, puisque le commit de la CI ne touche que `helm/`.
 
-### Pourquoi `oc rollout restart` et pas un déclencheur d'image
-OpenShift sait redéployer tout seul quand une nouvelle image arrive (annotation `image.openshift.io/triggers`). Mais ce déclencheur **réécrit l'image du Deployment**. Or Argo CD, avec `selfHeal: true`, remettrait aussitôt la valeur de Git, et les deux se renverraient la balle en redéployant en boucle. `oc rollout restart` n'ajoute qu'une annotation, `kubectl.kubernetes.io/restartedAt`, qu'Argo CD laisse en place.
+Pour revenir à la version précédente : `git revert` du commit `ci: déploie l'image ollama-agent:<sha>`, puis push. Argo CD redéploie l'ancienne image.
+
+### Pourquoi passer par Git plutôt que redémarrer le pod directement
+Argo CD, avec `selfHeal: true`, annule toute modification du Deployment faite en dehors de Git. Le redéploiement doit donc passer par Git :
+- un **déclencheur d'image OpenShift** (`image.openshift.io/triggers`) réécrirait l'image du Deployment, Argo CD la remettrait aussitôt, et les deux se renverraient la balle ;
+- un `oc rollout restart` avec une image `:latest` fonctionnerait, mais Git ne dirait pas quelle version tourne, et revenir en arrière serait compliqué.
+
+Avec un tag écrit dans Git, l'historique de `values-openshift.yaml` est l'historique des déploiements.
 
 ### Les alternatives écartées
 
@@ -160,9 +171,10 @@ Installation pas à pas, vérification et dépannage : [`openshift/CI.md`](../op
 
 | Je veux… | Je fais… |
 |---|---|
-| Déployer une modification du code | `git push` sur `main` : la CI reconstruit l'image et redémarre l'appli |
+| Déployer une modification du code | `git push` sur `main` : la CI reconstruit l'image, écrit son tag dans le chart, Argo CD redéploie |
+| Revenir à la version précédente | `git revert` du dernier commit `ci: déploie l'image …`, puis push |
 | Changer un réglage (ex. l'IP du Mac) | modifier `helm/ollama-agent/values-openshift.yaml`, puis commit et push : Argo CD synchronise |
-| Relancer un build à la main | onglet **Actions** → *Build image OpenShift* → *Run workflow*, ou `oc start-build ollama-agent --from-dir=. --follow` puis `oc rollout restart deployment/ollama-agent` |
+| Relancer un build à la main | onglet **Actions** → *Build image OpenShift* → *Run workflow* |
 | Voir l'URL de l'appli | `oc get route ollama-agent -n ollama-agent -o jsonpath='{.spec.host}'` |
 | Voir l'état du déploiement | `oc get application ollama-agent -n openshift-gitops` (Argo CD) |
 

@@ -1,16 +1,17 @@
 # Valeurs reproduisant openshift/deployment.yaml (cluster CRC, projet ollama-agent).
 #   helm upgrade --install ollama-agent ./helm/ollama-agent -n ollama-agent \
 #     -f helm/ollama-agent/values-openshift.yaml
-# L'image reste construite par openshift/buildconfig.yaml (oc start-build),
-# le chart ne gère que Deployment + Service + Route.
+# L'image reste construite par openshift/buildconfig.yaml (oc start-build, lancé
+# par la CI), le chart ne gère que Deployment + Service + Route.
 
 image:
   # ImageStream alimentée par le BuildConfig (registre interne du cluster).
   repository: image-registry.openshift-image-registry.svc:5000/ollama-agent/ollama-agent
+  # Mis à jour automatiquement par la CI (.github/workflows/build.yml) : SHA
+  # court du commit construit. Argo CD redéploie dès que cette valeur change.
   tag: latest
-  # :latest est réécrit à chaque build : Always pour que `oc rollout restart`
-  # récupère bien la nouvelle image.
-  pullPolicy: Always
+  # Chaque tag est unique et ne change jamais : inutile de retélécharger.
+  pullPolicy: IfNotPresent
 
 # IP LAN du Mac qui fait tourner Ollama (host.crc.testing ne route pas vers
 # l'hôte sur ce setup, voir openshift/README.md). À ajuster si le DHCP change.
