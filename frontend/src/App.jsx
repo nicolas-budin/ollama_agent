@@ -35,7 +35,7 @@ export default function App() {
         body: JSON.stringify({ message: text }),
       })
       if (!resp.ok) {
-        setMessages((prev) => [...prev, { role: 'meta', text: `Erreur : ${resp.status}` }])
+        setMessages((prev) => [...prev, { role: 'error', text: `Erreur : ${resp.status}` }])
         return
       }
 
@@ -80,10 +80,12 @@ export default function App() {
               },
             ])
           } else if (event === 'error') {
-            setMessages((prev) => [...prev, { role: 'meta', text: `Erreur : ${data}` }])
+            setMessages((prev) => [...prev, { role: 'error', text: `Erreur : ${data}` }])
           }
         }
       }
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'error', text: `Erreur : ${err.message}` }])
     } finally {
       setSending(false)
     }
@@ -91,8 +93,16 @@ export default function App() {
 
   async function resetConversation() {
     if (sending) return
-    await fetch('/api/reset', { method: 'POST' })
-    setMessages([])
+    try {
+      const resp = await fetch('/api/reset', { method: 'POST' })
+      if (!resp.ok) {
+        setMessages((prev) => [...prev, { role: 'error', text: `Erreur : ${resp.status}` }])
+        return
+      }
+      setMessages([])
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'error', text: `Erreur : ${err.message}` }])
+    }
   }
 
   return (
@@ -100,7 +110,10 @@ export default function App() {
       <h1>💬 Ollama — conversation multi-tours</h1>
       <div id="chat">
         {messages.map((m, i) => (
-          <div key={i} className={m.role === 'meta' ? 'meta' : `msg ${m.role}`}>
+          <div
+            key={i}
+            className={m.role === 'meta' ? 'meta' : m.role === 'error' ? 'error' : `msg ${m.role}`}
+          >
             {m.text}
           </div>
         ))}
