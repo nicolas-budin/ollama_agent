@@ -93,6 +93,25 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('Bonjour !')).toBeInTheDocument())
   })
 
+  it('vide la conversation avec le bouton "Nouvelle conversation"', async () => {
+    const sse = 'event: text\r\ndata: Bonjour !\r\n\r\nevent: done\r\ndata: {"duration_ms": 1, "eval_count": 1}\r\n\r\n'
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(makeSSEResponse(sse))
+      .mockResolvedValueOnce({ ok: true, status: 200 })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await sendMessage('Salut')
+    await waitFor(() => expect(screen.getByText('Bonjour !')).toBeInTheDocument())
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Nouvelle conversation' }))
+
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/reset', { method: 'POST' })
+    await waitFor(() => expect(screen.queryByText('Salut')).not.toBeInTheDocument())
+    expect(screen.queryByText('Bonjour !')).not.toBeInTheDocument()
+  })
+
   it('n’envoie pas de requête si le champ est vide', async () => {
     vi.stubGlobal('fetch', stubFetch({ ok: true, status: 200 }))
     const user = userEvent.setup()

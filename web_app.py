@@ -67,6 +67,14 @@ async def chat(request: Request):
     return EventSourceResponse(event_stream())
 
 
+@app.post("/api/reset")
+async def reset():
+    async with ollama_client.get_lock():
+        ollama_client.reset_history()
+    logger.info("Historique réinitialisé")
+    return {"status": "ok"}
+
+
 # Monté en dernier : sert le build React (index.html + assets),
 # sans masquer la route /api/chat déclarée au-dessus.
 # check_dir=False : frontend/dist n'existe pas tant que `npm run build` n'a pas
