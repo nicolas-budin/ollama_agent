@@ -89,6 +89,12 @@ export default function App() {
     }
   }
 
+  async function resetConversation() {
+    if (sending) return
+    await fetch('/api/reset', { method: 'POST' })
+    setMessages([])
+  }
+
   return (
     <>
       <h1>💬 Ollama — conversation multi-tours</h1>
@@ -109,6 +115,9 @@ export default function App() {
         />
         <button type="submit" disabled={sending}>
           Envoyer
+        </button>
+        <button type="button" onClick={resetConversation} disabled={sending}>
+          Nouvelle conversation
         </button>
       </form>
     </>

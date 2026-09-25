@@ -27,6 +27,15 @@ def get_lock() -> asyncio.Lock:
     return _lock
 
 
+def reset_history() -> None:
+    """Vide l'historique partagé (bouton "Nouvelle conversation" du frontend).
+
+    Suppose que l'appelant tient déjà get_lock(), même contrat que stream_chat().
+    """
+    global _history
+    _history = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+
 def get_or_create_client() -> httpx.AsyncClient:
     global _client
     if _client is None:

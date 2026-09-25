@@ -55,6 +55,27 @@ def test_chat_forwards_message_to_stream_chat(monkeypatch):
     assert received["message"] == "Quelle heure est-il ?"
 
 
+def test_reset_clears_history(monkeypatch):
+    monkeypatch.setattr(
+        ollama_client,
+        "_history",
+        [
+            {"role": "system", "content": ollama_client.SYSTEM_PROMPT},
+            {"role": "user", "content": "Bonjour"},
+            {"role": "assistant", "content": "Salut !"},
+        ],
+    )
+
+    client = TestClient(web_app.app)
+    resp = client.post("/api/reset")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+    assert ollama_client._history == [
+        {"role": "system", "content": ollama_client.SYSTEM_PROMPT}
+    ]
+
+
 def test_chat_streams_error_event_on_exception(monkeypatch):
     async def failing_stream_chat(message):
         raise RuntimeError("boom")

@@ -59,7 +59,8 @@ Unlike `ClaudeSDKClient` (which manages multi-turn state internally over a persi
 
 - `lifespan` is thin: just `ollama_client.disconnect_client()` at shutdown.
 - `POST /api/chat` acquires `ollama_client.get_lock()`, iterates `ollama_client.stream_chat(message)`, and re-emits each chunk as a **Server-Sent Event** via `sse-starlette`'s `EventSourceResponse` — translating Ollama's raw NDJSON stream into the same SSE contract the frontend expects (`text`, `done`, `error`). This translation step is the main thing this backend does that the Claude version's backend doesn't: Ollama doesn't speak SSE natively.
-- `StaticFiles(directory=FRONTEND_DIST, html=True)` is mounted at `/` **last**, after `/api/chat` — mount order matters here: an earlier mount at `/` would shadow the API route.
+- `POST /api/reset` clears `_history` back to just the system prompt (same lock as `/api/chat`, so it can't race a stream in progress) — backs the "Nouvelle conversation" button in the frontend. Exists because `_history` otherwise grows unbounded for the life of the process (Ollama is stateless, so every turn resends the full history).
+- `StaticFiles(directory=FRONTEND_DIST, html=True, check_dir=False)` is mounted at `/` **last**, after `/api/chat`/`/api/reset` — mount order matters here: an earlier mount at `/` would shadow the API routes.
 
 ### No tool-sandboxing concerns
 

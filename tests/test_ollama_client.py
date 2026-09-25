@@ -36,6 +36,24 @@ class FakeAsyncClient:
         return FakeStreamContext(self._lines, self.calls, method, url, json)
 
 
+def test_reset_history(monkeypatch):
+    monkeypatch.setattr(
+        ollama_client,
+        "_history",
+        [
+            {"role": "system", "content": ollama_client.SYSTEM_PROMPT},
+            {"role": "user", "content": "Bonjour"},
+            {"role": "assistant", "content": "Salut !"},
+        ],
+    )
+
+    ollama_client.reset_history()
+
+    assert ollama_client._history == [
+        {"role": "system", "content": ollama_client.SYSTEM_PROMPT}
+    ]
+
+
 def test_get_or_create_client_reuses_the_same_client(monkeypatch):
     created = []
 
