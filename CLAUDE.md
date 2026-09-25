@@ -24,9 +24,12 @@ ollama serve                # only if it isn't already running as a service
 
 # Run the server (serves API + built frontend from frontend/dist)
 uvicorn web_app:app --reload --port 8124
-```
 
-No test suite yet (deliberately skipped for the first pass — see CLAUDE.md history / ask before assuming one exists).
+# requirements-dev.txt has: pytest, pytest-asyncio (kept out of requirements.txt
+# so the Docker runtime image doesn't carry test-only deps)
+pip install -r requirements-dev.txt
+pytest -v
+```
 
 ### Frontend (Node/React/Vite)
 
@@ -36,6 +39,7 @@ npm install
 npm run dev      # dev server on :5173, proxies /api/* to :8124 (see vite.config.js)
 npm run build    # outputs to frontend/dist/, served by FastAPI in prod
 npm run lint     # oxlint
+npm test         # vitest run — parseEvent.test.js and App.test.jsx
 ```
 
 **Two-server dev workflow**: run `uvicorn` (backend, :8124) and `npm run dev` (frontend, :5173) in parallel terminals. For a single-server setup, run `npm run build` then serve everything through `uvicorn` alone — the backend mounts `frontend/dist` directly. Note: `StaticFiles` requires `frontend/dist` to exist at import time, so build the frontend at least once before starting `uvicorn` without `--reload`-driven frontend changes.
@@ -63,7 +67,7 @@ The Claude version has a documented footgun around `ClaudeAgentOptions.allowed_t
 
 ### Frontend SSE parsing (`frontend/src/App.jsx`)
 
-Identical to the reference project's approach and copied near-verbatim: the browser can't use the native `EventSource` API (GET-only), so `App.jsx` manually reads `fetch()`'s `ReadableStream` and parses SSE framing by hand, normalizing `sse-starlette`'s `\r\n` line endings before splitting on blank lines. `parseEvent` is exported for isolated unit testing (no test file wired up yet in this repo, unlike the reference project's `parseEvent.test.js`).
+Identical to the reference project's approach and copied near-verbatim: the browser can't use the native `EventSource` API (GET-only), so `App.jsx` manually reads `fetch()`'s `ReadableStream` and parses SSE framing by hand, normalizing `sse-starlette`'s `\r\n` line endings before splitting on blank lines. `parseEvent` is exported for isolated unit testing (`parseEvent.test.js`, ported from the reference project — it's a generic SSE parser, backend-agnostic).
 
 The one visible difference from the reference UI: the `done` event has no cost (Ollama is local/free), so the meta line shows `Durée : Xms · Y tokens` instead of a `$` cost figure.
 
@@ -73,7 +77,16 @@ A standalone one-shot reference script (non-streaming, single-turn) — the Olla
 
 ### Model
 
-`MODEL = "gemma4:26b"` is hardcoded in `ollama_client.py`, matching what's actually pulled locally (`ollama list`). Swap it there if you pull a different model.
+`MODEL` in `ollama_client.py` reads `OLLAMA_MODEL` (default `"gemma4:26b"`, matching what's actually pulled locally — `ollama list`). Same pattern as `OLLAMA_URL`/`OLLAMA_HOST` env vars: needed so the Docker/OpenShift images aren't hardcoded to one machine's setup.
+
+### Tests (`tests/`, `frontend/src/*.test.*`)
+
+Both mock the network entirely — no live Ollama, no real `fetch` — so they run the same locally and in CI (`.github/workflows/ci.yml`, on push to `main` and on every PR):
+
+- `tests/test_ollama_client.py` monkeypatches `ollama_client._client` with a fake `httpx.AsyncClient` whose `.stream()` replays canned NDJSON lines (Ollama's actual wire format), asserting both the yielded `{"type": "text"/"done", ...}` chunks and the `_history` mutations. This is the regression guard for the NDJSON→internal-chunk translation, the one piece of logic that has no equivalent in the reference Claude project.
+- `tests/test_web_app.py` monkeypatches `ollama_client.stream_chat` directly (an async generator function, not a client object — simpler to fake than the reference project's `ClaudeSDKClient`), and asserts on the SSE body via `TestClient`.
+- `frontend/src/parseEvent.test.js` / `App.test.jsx`: ported from the reference project; `App.test.jsx`'s `done`-event assertions were adapted to this project's actual meta line (`Durée : Xms · Y tokens`, no `cost_usd`).
+- `web_app.py`'s `StaticFiles` mount uses `check_dir=False`: `frontend/dist` doesn't exist in a fresh checkout (gitignored, built via `npm run build`), and the backend CI job never builds the frontend — without this flag, just `import web_app` would crash before any test ran.
 
 ### Helm chart (`helm/ollama-agent/`)
 

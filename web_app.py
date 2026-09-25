@@ -69,4 +69,7 @@ async def chat(request: Request):
 
 # Monté en dernier : sert le build React (index.html + assets),
 # sans masquer la route /api/chat déclarée au-dessus.
-app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+# check_dir=False : frontend/dist n'existe pas tant que `npm run build` n'a pas
+# tourné (gitignored) — sans ça, importer ce module échoue dans un checkout
+# frais (ex. le job de tests backend en CI, qui ne build pas le frontend).
+app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True, check_dir=False), name="frontend")
