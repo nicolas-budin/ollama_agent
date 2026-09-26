@@ -32,6 +32,107 @@ Il y a deux circuits indépendants :
 
 Les deux circuits se rejoignent dans Git : la CI ne touche jamais directement au Deployment. **C'est Git qui décide de ce qui tourne**, image comprise.
 
+## Schémas détaillés : la CI (runner) et le CD (Argo CD)
+
+### La CI : le runner GitHub Actions sur le Mac
+
+```
+  toi                     GITHUB                                   MAC (runner + CRC)
+  ───                     ──────                                   ──────────────────
+                                                                    Runner.Listener
+ git push main ───────►  repo                                       (label: crc)
+ (touche *.py, frontend/,   │                                           │
+  Dockerfile, requirements) │ push sur main + filtre "paths"            │
+                            ▼                                           │
+                         Actions : build.yml                            │
+                         runs-on: [self-hosted, macOS, crc]             │
+                            │                                           │
+                            │   job en attente ◄──── le runner INTERROGE GitHub
+                            │   (aucun port ouvert :  (connexion sortante, long-poll)
+                            │    le Mac appelle GitHub, jamais l'inverse)
+                            └──────────── job envoyé ──────────────────►│
+                                                                        │
+              ┌─────────────────────────────────────────────────────────┘
+              ▼   étapes exécutées EN LOCAL sur le Mac
+   1. actions/checkout                       (clone dans actions-runner/_work)
+   2. oc login  ← secrets.OPENSHIFT_TOKEN    (SA "github-ci", droits minimaux,
+                  vars.OPENSHIFT_SERVER       namespace ollama-agent seulement)
+   3. oc start-build ollama-agent --from-dir=.  ──────────►  CRC : BuildConfig
+                                                              construit le Dockerfile
+                                                                   │
+                                                                   ▼
+                                                        ImageStream ollama-agent
+                                                        (registre INTERNE d'OpenShift)
+   4. oc tag ollama-agent@<digest> → ollama-agent:<sha7>   (tag unique, immuable)
+   5. sed : image.tag: "<sha7>" dans helm/ollama-agent/values-openshift.yaml
+   6. git commit "ci: déploie l'image ollama-agent:<sha7>"
+      git push origin main ───────────────────────────────►  GITHUB (repo)
+      (GITHUB_TOKEN, contents: write ; 3 tentatives si main a bougé)
+```
+
+### Le CD : Argo CD dans CRC (namespace `openshift-gitops`)
+
+```
+   GITHUB (repo, branche main)                       CRC / OpenShift
+   ───────────────────────────                       ───────────────
+   helm/ollama-agent/                                Argo CD
+     templates/ (Deployment, Service, Route)         ┌──────────────────────────────────┐
+     values.yaml                                     │ repo-server                      │
+     values-openshift.yaml  ◄── image.tag: "<sha7>"  │   clone Git, exécute             │
+                 │                                   │   "helm template" + values-openshift
+                 │  ◄──── Argo CD INTERROGE Git ─────│   → manifestes YAML (état voulu) │
+                 │        (sortant, ~3 min ou        │                                  │
+                 │         refresh manuel)           │ application-controller           │
+                 │                                   │   compare voulu  vs  état réel  │
+                 │                                   │   du namespace ollama-agent      │
+                 │                                   │                                  │
+                 │                                   │   OutOfSync ? ──► sync AUTO :    │
+                 │                                   │     • apply (droits via label    │
+                 │                                   │       argocd.argoproj.io/        │
+                 │                                   │       managed-by)                │
+                 │                                   │     • prune    (objet retiré → supprimé)
+                 │                                   │     • selfHeal (modif à la main  │
+                 │                                   │                 → annulée)       │
+                 │                                   └───────────────┬──────────────────┘
+                 │                                                   │ apply
+                 │                                                   ▼
+                 │                                        namespace ollama-agent
+                 │                                        ┌────────────────────────────┐
+                 │                                        │ Deployment (1 replica,     │
+                 │                                        │   strategy: Recreate)      │
+                 │                                        │      │ image: …/ollama-agent:<sha7>
+                 │                                        │      ▼   (pull registre interne)
+                 │                                        │ Pod  ◄── Service ◄── Route │◄── navigateur
+                 │                                        └──────┬─────────────────────┘
+                 │                                               │ OLLAMA_URL (IP LAN du Mac)
+                 │                                               ▼
+                 │                                          Ollama gemma4:26b (Mac, hors cluster)
+```
+
+### Les deux circuits, et pourquoi ils ne se battent pas
+
+```
+                    CODE                                          CONFIG
+             (*.py, frontend/, Dockerfile)                  (helm/, argocd/)
+                        │                                          │
+                        ▼                                          ▼
+                  CI : runner Mac                            CD : Argo CD
+        construit l'image, tag = <sha7>              aligne le cluster sur Git
+                        │                                          ▲
+                        │  écrit le tag dans helm/  ───────────────┘
+                        └──────── commit sur main ─────────────────►  Git = SEULE
+                                                                       source de vérité
+
+   Garde-fous :
+   • la CI ne touche JAMAIS au Deployment (sinon selfHeal l'annulerait aussitôt)
+   • pas de :latest → chaque image a un tag immuable ; imagePullPolicy: IfNotPresent
+   • pas de boucle : build.yml filtre sur paths SANS helm/ → le commit de la CI
+     (qui ne touche que helm/) ne relance pas de build, et un push fait avec
+     GITHUB_TOKEN ne déclenche pas d'autre workflow
+   • rollback : git revert du commit "ci: déploie l'image …" + push → Argo CD
+     redéploie l'ancien tag
+```
+
 ## 1. L'image : un seul conteneur pour tout
 
 Le `Dockerfile` travaille en deux étapes :
