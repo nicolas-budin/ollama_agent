@@ -3,8 +3,6 @@ import json
 import logging
 import os
 
-
-
 import httpx
 
 logger = logging.getLogger(__name__)
