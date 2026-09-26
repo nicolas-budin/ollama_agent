@@ -9,7 +9,7 @@ image:
   repository: image-registry.openshift-image-registry.svc:5000/ollama-agent/ollama-agent
   # Mis à jour automatiquement par la CI (.github/workflows/build.yml) : SHA
   # court du commit construit. Argo CD redéploie dès que cette valeur change.
-  tag: "004abf2"
+  tag: "0185546"
   # Chaque tag est unique et ne change jamais : inutile de retélécharger.
   pullPolicy: IfNotPresent
 
