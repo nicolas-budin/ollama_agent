@@ -61,14 +61,14 @@ Fonctions communes (noms, labels) et message affiché après `helm install` (com
 
 | Élément | `deployment.yaml` | Chart + `values-openshift.yaml` |
 |---|---|---|
-| Image | `image-registry…/ollama-agent/ollama-agent:latest` | identique |
+| Image | `image-registry…/ollama-agent/ollama-agent:latest` | même registre, tag = SHA du commit, écrit par la CI (voir [`openshift/CI.md`](../openshift/CI.md)) |
 | `OLLAMA_URL` | `http://192.168.1.119:11434/api/chat` | identique |
 | `OLLAMA_MODEL` | non défini (défaut du code : `gemma4:26b`) | `gemma4:26b`, explicite |
 | Probes | `GET /`, délais 3 s / 10 s | identiques |
 | Noms des objets | `ollama-agent` | identiques, donc **même URL de Route** |
 | Route | HTTP, timeout 30 s | HTTP, **timeout 10 min** |
 | Stratégie de mise à jour | `RollingUpdate` (2 pods pendant un instant) | **`Recreate`** (jamais 2 pods) |
-| `imagePullPolicy` | défaut (`Always` pour `:latest`) | `Always`, explicite |
+| `imagePullPolicy` | défaut (`Always` pour `:latest`) | `IfNotPresent` : chaque tag est unique et ne change jamais |
 | Nombre de replicas | 1 (rien n'empêche de monter) | 1, **bloqué** |
 | Labels | `app: ollama-agent` | labels Helm standard |
 
@@ -88,9 +88,11 @@ oc get route ollama-agent -o jsonpath='{.spec.host}'
 ## Au quotidien
 
 ```bash
-# Nouveau code (inchangé)
-oc start-build ollama-agent --from-dir=. --follow
-oc rollout restart deployment/ollama-agent
+# Nouveau code : la CI construit l'image et écrit son tag dans values-openshift.yaml
+# (voir openshift/CI.md). Avec Argo CD, le redéploiement est automatique ; avec
+# une release Helm installée à la main, récupérer ce commit puis :
+git pull
+helm upgrade ollama-agent ./helm/ollama-agent -f helm/ollama-agent/values-openshift.yaml
 
 # L'IP du Mac a changé (remplace `oc set env`, qui serait écrasé au prochain upgrade)
 helm upgrade ollama-agent ./helm/ollama-agent -f helm/ollama-agent/values-openshift.yaml \

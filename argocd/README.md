@@ -108,9 +108,10 @@ relancer manuellement `oc apply -f argocd/application.yaml`.
 ## Au quotidien
 
 ```bash
-# Nouveau code applicatif (inchangé, le build ne passe pas par Argo CD)
-oc start-build ollama-agent --from-dir=. --follow
-oc rollout restart deployment/ollama-agent
+# Nouveau code applicatif : rien à faire. À chaque push sur main, GitHub Actions
+# construit l'image, écrit son tag dans values-openshift.yaml et pousse ce commit ;
+# Argo CD le voit et redéploie (voir openshift/CI.md).
+# Revenir à l'image précédente : git revert du commit "ci: déploie l'image …"
 
 # Changer un réglage (ex. l'IP du Mac qui a changé) : commit + push sur main,
 # Argo CD synchronise tout seul — plus besoin de `helm upgrade --set ...` à la main

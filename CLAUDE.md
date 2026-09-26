@@ -89,6 +89,10 @@ Both mock the network entirely — no live Ollama, no real `fetch` — so they r
 - `frontend/src/parseEvent.test.js` / `App.test.jsx`: ported from the reference project; `App.test.jsx`'s `done`-event assertions were adapted to this project's actual meta line (`Durée : Xms · Y tokens`, no `cost_usd`).
 - `web_app.py`'s `StaticFiles` mount uses `check_dir=False`: `frontend/dist` doesn't exist in a fresh checkout (gitignored, built via `npm run build`), and the backend CI job never builds the frontend — without this flag, just `import web_app` would crash before any test ran.
 
+### Deployment docs
+
+`docs/deploiement-openshift.md` (French) is the end-to-end overview of the OpenShift chain — image build, OpenShift specifics, Helm, Argo CD, CI — and the reasoning/alternatives behind each choice. Keep it in sync when any of those change; per-folder READMEs hold the detailed commands.
+
 ### Helm chart (`helm/ollama-agent/`)
 
 OpenShift-only chart (documented in `helm/README.md`, in French) that replaces `openshift/deployment.yaml`; the BuildConfig/ImageStream in `openshift/buildconfig.yaml` stay outside Helm. Docs for it talk about OpenShift only — keep Kubernetes-generic options (Ingress, `kubectl`) out. Key constraints:
@@ -99,3 +103,12 @@ OpenShift-only chart (documented in `helm/README.md`, in French) that replaces `
 - Exposure is a `route.openshift.io/v1` Route (enabled by default) with `haproxy.router.openshift.io/timeout` (default 30s would cut long streams).
 - `values-openshift.yaml` mirrors `openshift/deployment.yaml` (the CRC setup: internal-registry image, `OLLAMA_URL` on the Mac's LAN IP, plain-HTTP Route).
 - No `runAsUser` is set so the restricted SCC can assign a random UID (the app writes nothing to disk).
+
+### CI (`.github/workflows/build.yml`, documented in `openshift/CI.md`)
+
+- Runs on a **self-hosted runner on the Mac** (`runs-on: [self-hosted, macOS, crc]`): CRC isn't reachable from the internet, so GitHub-hosted runners and BuildConfig webhooks can't be used. Custom label `crc` is declared in `.github/actionlint.yaml`.
+- Triggered on push to `main` touching app code (`Dockerfile`, `*.py`, `requirements.txt`, `frontend/**`…) or manually; changes under `helm/`/`argocd/` are Argo CD's job, not a build.
+- Steps: `oc login` with the `github-ci` service account token (`secrets.OPENSHIFT_TOKEN`, `vars.OPENSHIFT_SERVER`, job-local `KUBECONFIG`) → `oc start-build --from-dir=.` (wait for a final phase) → `oc tag <is>@<build digest> <is>:<short sha>` → rewrite the single `  tag:` line of `helm/ollama-agent/values-openshift.yaml` and push that commit to `main` (retry on rejection). Argo CD then rolls the pod. The SA's minimal Role (builds + imagestreamtags, no Deployment access) lives in `openshift/ci-serviceaccount.yaml`.
+- GitOps on purpose: the CI never touches the Deployment. No `image.openshift.io/triggers` (Argo CD `selfHeal` would fight it) and no `:latest` + `rollout restart` (Git wouldn't say what runs). Tags are immutable, hence `pullPolicy: IfNotPresent`. The build `paths` filter excludes `helm/`, so the CI's own commit doesn't retrigger it. Rollback = `git revert` the `ci: déploie l'image …` commit.
+- The repo is public: fork-PR workflows must require approval, since a self-hosted runner executes workflow code on the Mac. The workflow has `contents: write` (to push the tag commit); if `main` gets branch protection, `github-actions[bot]` must be allowed to push.
+

@@ -1,0 +1,115 @@
+# Reconstruit l'image dans le registre interne d'OpenShift (CRC) à chaque push
+# sur main qui touche le code de l'appli, lui donne un tag unique (le SHA du
+# commit), puis écrit ce tag dans helm/ollama-agent/values-openshift.yaml et le
+# pousse sur main. Argo CD voit le changement dans Git et redéploie le pod :
+# c'est Git qui décide de l'image qui tourne.
+#
+# Tourne sur un runner auto-hébergé installé sur le Mac qui fait tourner CRC :
+# le cluster n'est pas joignable depuis Internet, donc ni un webhook GitHub ni
+# un runner hébergé par GitHub ne peuvent l'atteindre. Installation et sécurité :
+# voir openshift/CI.md.
+name: Build image OpenShift
+
+on:
+  push:
+    branches: [main]
+    # Pas helm/ : le commit de mise à jour du tag ne relance donc pas de build.
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - requirements.txt
+      - "*.py"
+      - "frontend/**"
+      - .github/workflows/build.yml
+  workflow_dispatch:
+
+permissions:
+  # Pour pousser le commit qui met à jour le tag de l'image.
+  contents: write
+
+# Un seul build à la fois : un push pendant un build attend la fin du précédent.
+concurrency:
+  group: openshift-build
+  cancel-in-progress: false
+
+env:
+  NAMESPACE: ollama-agent
+  BUILD_CONFIG: ollama-agent
+  IMAGE_STREAM: ollama-agent
+  VALUES_FILE: helm/ollama-agent/values-openshift.yaml
+
+jobs:
+  build:
+    runs-on: [self-hosted, macOS, crc]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ajouter le oc fourni par CRC au PATH
+        run: echo "$HOME/.crc/bin/oc" >> "$GITHUB_PATH"
+
+      # kubeconfig propre au job : ne touche pas à ~/.kube/config de l'utilisateur.
+      # --insecure-skip-tls-verify : l'API CRC a un certificat auto-signé et le
+      # trafic reste local au Mac (api.crc.testing -> VM CRC).
+      - name: Connexion au cluster
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kubeconfig
+        run: |
+          oc login "${{ vars.OPENSHIFT_SERVER }}" \
+            --token="${{ secrets.OPENSHIFT_TOKEN }}" \
+            --insecure-skip-tls-verify=true
+          oc whoami
+
+      - name: Build de l'image (BuildConfig binaire)
+        id: build
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kubeconfig
+        run: |
+          build=$(oc start-build "$BUILD_CONFIG" -n "$NAMESPACE" --from-dir=. -o name)
+          oc logs -f "$build" -n "$NAMESPACE" || true
+          # oc logs peut rendre la main avant la fin (pod pas encore démarré) et
+          # la fin des logs précède parfois la mise à jour du statut : on attend
+          # un état final (borné par timeout-minutes du job).
+          for _ in $(seq 900); do
+            phase=$(oc get "$build" -n "$NAMESPACE" -o jsonpath='{.status.phase}')
+            case "$phase" in Complete|Failed|Error|Cancelled) break ;; esac
+            sleep 2
+          done
+          echo "Build $build : $phase"
+          test "$phase" = Complete
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+      # Tag immuable = SHA court du commit construit. On part du digest produit
+      # par CE build (pas de :latest, qu'un autre build pourrait avoir changé).
+      - name: Tag unique de l'image
+        id: tag
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kubeconfig
+        run: |
+          tag="${GITHUB_SHA:0:7}"
+          digest=$(oc get "${{ steps.build.outputs.build }}" -n "$NAMESPACE" \
+            -o jsonpath='{.status.output.to.imageDigest}')
+          test -n "$digest"
+          oc tag "$NAMESPACE/$IMAGE_STREAM@$digest" "$NAMESPACE/$IMAGE_STREAM:$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      # Argo CD suit main : ce commit déclenche le redéploiement.
+      - name: Mise à jour du tag dans le chart Helm
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git checkout -B main origin/main
+            # Seule ligne "  tag:" du fichier : celle du bloc image.
+            sed -i.bak -E "s/^  tag: .*/  tag: \"$TAG\"/" "$VALUES_FILE" && rm "$VALUES_FILE.bak"
+            if git diff --quiet; then
+              echo "Tag déjà à jour ($TAG)"; exit 0
+            fi
+            git commit -am "ci: déploie l'image ollama-agent:$TAG"
+            if git push origin main; then exit 0; fi
+            echo "Push refusé (main a bougé), nouvelle tentative"; sleep 5
+          done
+          exit 1

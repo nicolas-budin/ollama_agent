@@ -95,6 +95,10 @@ fonctionne normalement sous l'UID aléatoire non-root qu'OpenShift assigne via l
 
 ## Mettre à jour après un changement de code
 
+Avec le chart Helm piloté par Argo CD, c'est automatique : un push sur `main` qui touche le code relance le build via GitHub Actions et un runner sur le Mac, la CI écrit le tag de la nouvelle image dans le chart, et Argo CD redéploie (voir [`CI.md`](CI.md)).
+
+Avec `openshift/deployment.yaml` appliqué à la main (image `:latest`) :
+
 ```bash
 oc start-build ollama-agent --from-dir=. --follow
 oc rollout restart deployment/ollama-agent

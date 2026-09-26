@@ -22,6 +22,8 @@ App disponible sur `http://localhost:8124`. Pour pointer vers un autre modèle o
 
 ## Déployer sur OpenShift
 
+Vue d'ensemble de toute la chaîne (image, OpenShift, Helm, Argo CD, CI) et des choix faits : [`docs/deploiement-openshift.md`](docs/deploiement-openshift.md).
+
 Voir [`openshift/README.md`](openshift/README.md) — build binaire via le registre interne, connectivité vers l'Ollama de l'hôte, et comment augmenter le disque/mémoire alloués à CRC.
 
 ## Déployer avec Helm (OpenShift)
@@ -31,3 +33,7 @@ Le chart `helm/ollama-agent/` remplace `openshift/deployment.yaml`. Contenu, ré
 ## Déployer avec Argo CD (GitOps)
 
 `argocd/application.yaml` fait piloter ce même chart Helm par Argo CD (sync automatique depuis `main`) à la place de `helm install`/`helm upgrade` manuels. Voir [`argocd/README.md`](argocd/README.md).
+
+## CI : build automatique de l'image
+
+À chaque push sur `main` qui touche le code, GitHub Actions (via un runner installé sur le Mac qui fait tourner CRC) reconstruit l'image dans le registre interne d'OpenShift, écrit son tag dans le chart Helm et pousse ce commit ; Argo CD redéploie. Voir [`openshift/CI.md`](openshift/CI.md).
