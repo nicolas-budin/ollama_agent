@@ -22,6 +22,7 @@ h1 { font-size: 1.2rem; }
 .user { align-self: flex-end; background: #2563eb; color: white; }
 .assistant { align-self: flex-start; background: rgba(127,127,127,0.15); }
 .meta { align-self: flex-start; font-size: 0.75rem; opacity: 0.6; }
+.error { align-self: flex-start; font-size: 0.75rem; color: #dc2626; font-weight: 600; }
 form { display: flex; gap: 0.5rem; }
 input {
   flex: 1;

@@ -70,6 +70,7 @@ describe('App', () => {
     await sendMessage('Salut')
 
     await waitFor(() => expect(screen.getByText('Erreur : 500')).toBeInTheDocument())
+    expect(screen.getByText('Erreur : 500')).toHaveClass('error')
   })
 
   it('affiche l’événement error émis par le serveur', async () => {
@@ -79,6 +80,36 @@ describe('App', () => {
     await sendMessage('Salut')
 
     await waitFor(() => expect(screen.getByText('Erreur : Boom')).toBeInTheDocument())
+    expect(screen.getByText('Erreur : Boom')).toHaveClass('error')
+  })
+
+  it('affiche une erreur si fetch échoue (réseau coupé) lors de l’envoi', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new Error('Network down')))
+
+    await sendMessage('Salut')
+
+    await waitFor(() => expect(screen.getByText('Erreur : Network down')).toBeInTheDocument())
+    expect(screen.getByText('Erreur : Network down')).toHaveClass('error')
+  })
+
+  it('affiche une erreur si le reset échoue au lieu de vider silencieusement', async () => {
+    const sse = 'event: text\r\ndata: Bonjour !\r\n\r\nevent: done\r\ndata: {"duration_ms": 1, "eval_count": 1}\r\n\r\n'
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(makeSSEResponse(sse))
+      .mockRejectedValueOnce(new Error('Network down'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await sendMessage('Salut')
+    await waitFor(() => expect(screen.getByText('Bonjour !')).toBeInTheDocument())
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Nouvelle conversation' }))
+
+    await waitFor(() => expect(screen.getByText('Erreur : Network down')).toBeInTheDocument())
+    // La conversation existante n'est pas silencieusement vidée par une erreur.
+    expect(screen.getByText('Salut')).toBeInTheDocument()
+    expect(screen.getByText('Bonjour !')).toBeInTheDocument()
   })
 
   it('reconstruit un événement dont les octets arrivent en deux morceaux (buffering)', async () => {
