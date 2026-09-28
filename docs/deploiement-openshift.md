@@ -287,3 +287,4 @@ Installation pas à pas, vérification et dépannage : [`openshift/CI.md`](../op
 | Chart Helm : contenu, réglages, migration, rollback | [`helm/README.md`](../helm/README.md) |
 | Argo CD : Application, RBAC, UI | [`argocd/README.md`](../argocd/README.md) |
 | CI : installation du runner, secrets, sécurité, dépannage | [`openshift/CI.md`](../openshift/CI.md) |
+| Tutoriel chronologique pour reproduire tout ça sur un autre projet | [`docs/tutoriel-cicd.md`](tutoriel-cicd.md) |
