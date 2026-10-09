@@ -165,7 +165,7 @@ Aucun `runAsUser` n'est donc imposé nulle part.
 L'appli est exposée hors du cluster par une **Route**. Par défaut, le routeur d'OpenShift (HAProxy) coupe une connexion au bout de **30 s**. Or une réponse de `gemma4:26b` arrive mot par mot (streaming SSE) et peut durer plus longtemps. La Route du chart porte donc l'annotation `haproxy.router.openshift.io/timeout: 10m`.
 
 ### Joindre Ollama depuis le cluster
-Ollama tourne sur le Mac, hors du cluster. Sur ce setup CRC, les adresses habituelles (`host.docker.internal`, `host.crc.testing`) ne mènent pas à Ollama. Ce qui marche, c'est **l'IP LAN du Mac** (ex. `192.168.1.119`). Si elle change (DHCP), il faut mettre à jour `ollamaUrl`. Détails : [`openshift/README.md`](../openshift/README.md#connectivité-vers-ollama).
+Ollama tourne sur le Mac, hors du cluster. Sur ce setup CRC, les adresses habituelles (`host.docker.internal`, `host.crc.testing`) ne mènent pas à Ollama. Ce qui marche, c'est **l'IP LAN du Mac** (ex. `192.168.1.107`). Si elle change (DHCP), il faut mettre à jour `ollamaUrl`. Détails : [`openshift/README.md`](../openshift/README.md#connectivité-vers-ollama).
 
 ### Une seule copie de l'appli
 L'historique de conversation (`_history` dans `ollama_client.py`) vit **dans la mémoire du process**. Avec deux pods, chacun aurait son propre historique et le modèle « oublierait » une partie de la conversation selon le pod qui répond. D'où :

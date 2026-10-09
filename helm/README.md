@@ -62,7 +62,7 @@ Fonctions communes (noms, labels) et message affiché après `helm install` (com
 | Élément | `deployment.yaml` | Chart + `values-openshift.yaml` |
 |---|---|---|
 | Image | `image-registry…/ollama-agent/ollama-agent:latest` | même registre, tag = SHA du commit, écrit par la CI (voir [`openshift/CI.md`](../openshift/CI.md)) |
-| `OLLAMA_URL` | `http://192.168.1.119:11434/api/chat` | identique |
+| `OLLAMA_URL` | `http://192.168.1.107:11434/api/chat` | identique |
 | `OLLAMA_MODEL` | non défini (défaut du code : `gemma4:26b`) | `gemma4:26b`, explicite |
 | Probes | `GET /`, délais 3 s / 10 s | identiques |
 | Noms des objets | `ollama-agent` | identiques, donc **même URL de Route** |

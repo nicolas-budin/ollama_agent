@@ -52,7 +52,7 @@ gvisor-tap-vsock), les alias habituels ne fonctionnent **pas** :
   depuis un pod), mais la connexion TCP vers le port 11434 échoue — cette adresse ne
   route pas vers le vrai Ollama qui écoute sur le Mac.
 - **Ce qui marche** : l'IP LAN réelle de la machine (trouvée via `ifconfig` /
-  Réglages réseau, ex. `192.168.1.119`), parce qu'Ollama écoute déjà sur toutes les
+  Réglages réseau, ex. `192.168.1.107`), parce qu'Ollama écoute déjà sur toutes les
   interfaces (`lsof -iTCP -sTCP:LISTEN` montre `*:11434`), et les pods CRC ont un accès
   réseau sortant normal (NAT) vers le LAN et internet.
 

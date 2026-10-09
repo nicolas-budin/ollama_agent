@@ -25,7 +25,7 @@ spec:
             # ne fonctionnent pas sur ce setup — voir openshift/README.md).
             # À ajuster si l'IP change (DHCP).
             - name: OLLAMA_URL
-              value: "http://192.168.1.119:11434/api/chat"
+              value: "http://192.168.1.107:11434/api/chat"
           readinessProbe:
             httpGet:
               path: /
